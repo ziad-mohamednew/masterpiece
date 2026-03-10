@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>تحفة الأطفال | تفاعلية </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@500;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --primary-green: #0a7a53; 
+            --gradient-green: linear-gradient(135deg, #128c62 0%, #065a3d 100%);
+            --accent-gold: #0a7a53;   
+            --soft-gold: #f4eee0;
+            --text-dark: #1a3a2f;
+        }
+
+        body { font-family: 'Tajawal', sans-serif; background: #f8faf9; margin: 0; user-select: none; transition: filter 0.6s; }
+        .font-amiri { font-family: 'Amiri', serif; }
+        
+        .page-container { max-width: 800px; margin: 0 auto; padding: 20px 15px 260px 15px; background: #fff; min-height: 100vh; box-shadow: 0 0 20px rgba(0,0,0,0.03); }
+        
+        .section-title { background: var(--soft-gold); color: var(--primary-green); font-weight: 800; text-align: center; padding: 8px; margin: 25px 0 10px 0; border-radius: 12px; font-size: 0.9rem; border: 1px solid var(--accent-gold); }
+        
+        .verse-block { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: all 0.3s ease; scroll-margin-top: 100px; }
+        .active-reading { background: #f0f7f4 !important; border-right: 4px solid var(--accent-gold); }
+        .shatr { width: 44%; font-size: 1.05rem; line-height: 1.7; color: var(--text-dark); text-align: center; font-family: 'Amiri', serif; }
+        .v-num { width: 10%; text-align: center; font-size: 0.75rem; color: var(--accent-gold); font-weight: bold; background: #fdfaf3; border-radius: 50%; padding: 4px; }
+        
+        .highlight-word { color: var(--primary-green); font-weight: bold; }
+
+        .control-panel { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 3px solid var(--accent-gold); padding: 15px; z-index: 1000; transition: transform 0.5s, opacity 0.4s; box-shadow: 0 -5px 20px rgba(0,0,0,0.1); }
+        .hidden-ui { transform: translateY(100%); opacity: 0; pointer-events: none; }
+        
+        #guideOverlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(10px); z-index: 5000; display: none; align-items: center; justify-content: center; }
+        .guide-card { background: var(--primary-green); color: white; padding: 25px; border-radius: 20px; text-align: center; max-width: 85%; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+
+        .guide-progress-bg { width: 100%; height: 6px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: 15px 0; overflow: hidden; }
+        #guideBar { width: 0%; height: 100%; background: #fff; transition: width 3s linear; }
+
+        #shareBlurOverlay { position: fixed; inset: 0; backdrop-filter: blur(15px); background: rgba(255,255,255,0.1); z-index: 3900; display: none; transition: opacity 0.8s ease; }
+        
+        #dynamicShareBtn { position: fixed; z-index: 4000; background: var(--primary-green); color: white; padding: 12px 24px; border-radius: 50px; font-weight: bold; display: none; cursor: pointer; font-size: 14px; border: 1px solid var(--accent-gold); transition: all 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        
+        @keyframes shareBounce {
+            0%, 100% { transform: translate(-50%, -50%) scale(1.2); }
+            50% { transform: translate(-50%, -50%) scale(1.35); }
+        }
+        .share-center { top: 50%; left: 50%; transform: translate(-50%, -50%) scale(1.2); display: block !important; animation: shareBounce 1s infinite ease-in-out; }
+        
+        .share-final { top: auto !important; bottom: 30px !important; left: 20px !important; display: block !important; transform: translate(0, 0) scale(1) !important; animation: none !important; }
+        .share-final.push-up { transform: translateY(-130px) scale(0.9) !important; }
+        
+        #pBar { background: var(--accent-gold); }
+        .btn-gold { background-color: var(--accent-gold); color: white; }
+        .btn-green { background-color: var(--primary-green); color: white; }
+        #toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--primary-green); color: #fff; padding: 10px 20px; border-radius: 25px; font-size: 13px; display: none; z-index: 6000; }
+        .full-blur { filter: blur(8px); pointer-events: none; }
+
+        #visitor-tag { font-size: 10px; color: var(--primary-green); background: var(--soft-gold); padding: 2px 8px; border-radius: 10px; margin-bottom: 10px; display: inline-block; font-weight: bold; }
+
+        #halal-ads-window { 
+            display: none; 
+            position: fixed; 
+            top: 15px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            width: 90%; 
+            max-width: 400px; 
+            z-index: 9999; 
+            padding: 12px;
+            opacity: 0;
+            filter: blur(15px);
+            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #halal-ads-window.show-ad { opacity: 1; filter: blur(0); }
+        .ad-content { display: flex; align-items: center; gap: 12px; cursor: pointer; text-decoration: none; }
+        .ad-img { width: 60px; height: 60px; border-radius: 10px; object-fit: cover; flex-shrink: 0; }
+        .ad-text-wrapper { flex: 1; overflow: hidden; }
+        .ad-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ad-desc { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+        .close-ad { position: absolute; top: -10px; right: -10px; background: #ff4444; color: white; width: 26px; height: 26px; border-radius: 50%; border: 2px solid white; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        
+        .offline-btn { background: #f0f0f0; color: #444; border: 1px solid #ddd; padding: 4px 10px; border-radius: 8px; font-size: 10px; cursor: pointer; transition: all 0.3s; }
+        .offline-btn.done { background: #e6fffa; color: #0a7a53; border-color: #0a7a53; }
+    </style>
+</head>
+<body>
+
+    <div id="halal-ads-window">
+        <button class="close-ad" onclick="closeAd()">×</button>
+        <a href="#" id="ad-link" target="_blank" class="ad-content">
+            <img src="" id="ad-image" class="ad-img">
+            <div class="ad-text-wrapper">
+                <span id="ad-message" class="ad-title"></span>
+                <div id="ad-desc" class="ad-desc"></div>
+            </div>
+        </a>
+    </div>
+
+    <div id="toast">تم نسخ الرابط لنشره ✅</div>
+    
+    <div id="shareBlurOverlay"></div>
+    <div id="dynamicShareBtn" onclick="copyAndShare()">🔗 مشاركة التطبيق</div>
+
+    <div id="guideOverlay">
+        <div class="guide-card">
+            <h3 class="font-bold text-xl mb-4">💡 تعليمات الاستخدام</h3>
+            <p class="text-sm mb-2">🔹 <b>ضغطة واحدة:</b> لإخفاء شريط التحكم</p>
+            <p class="text-sm mb-4">🔹 <b>ضغطة مزدوجة:</b> لإظهار التحكم والضبط</p>
+            <div class="guide-progress-bg"><div id="guideBar"></div></div>
+            <button id="startBtn" onclick="closeGuide()" class="bg-white text-emerald-900 px-8 py-2 rounded-full font-bold text-sm hidden">بدء التعلم</button>
+        </div>
+    </div>
+
+    <div class="page-container" id="mainContent">
+        <center><div id="visitor-tag">المتواجدون الآن: <span id="online-count">1</span></div></center>
+
+        <header class="text-center mb-6 py-4 rounded-2xl" style="background: var(--gradient-green)">
+            <h1 class="font-amiri text-2xl font-bold text-white">تُحْفَةُ الأَطْفَالِ وَالْغِلْمَانِ</h1>
+            <p class="text-white/80 text-[10px] mt-1">متن الجمزوري في التجويد</p>
+        </header>
+        
+        <div class="px-2">
+            <input type="text" id="searchInput" oninput="searchVerse()" placeholder="🔍 ابحث في الأبيات..." class="w-full p-3 px-5 mt-2 text-sm outline-none shadow-sm border border-emerald-100 rounded-full focus:border-emerald-500 transition-colors">
+        </div>
+
+        <div id="poemBody"></div>
+    </div>
+
+    <div id="controls" class="control-panel hidden-ui">
+        <div class="max-w-2xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <button id="playBtn" onclick="toggleAudio()" class="w-14 h-14 btn-gold rounded-full text-2xl shadow-lg flex items-center justify-center">▶</button>
+                <div>
+                    <div id="vTitle" class="text-xs font-bold text-emerald-900">اختر بيتاً للبدء</div>
+                    <div class="flex gap-1 mt-1">
+                        <button id="modeSingle" onclick="setLoopMode('single')" class="btn-green text-[10px] px-3 py-1 rounded-full">بيت واحد</button>
+                        <button id="modeAll" onclick="setLoopMode('all')" class="bg-gray-100 text-gray-600 text-[10px] px-3 py-1 rounded-full">بقية المتن</button>
+                        <button id="offlineBtn" onclick="enableOffline()" class="offline-btn">📥 تشغيل بدون نت</button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-2 items-end">
+                <div class="flex flex-col"><span class="text-[9px] font-bold text-emerald-800">تكرار</span><input type="number" id="customLoop" value="1" min="1" class="w-10 text-center border border-emerald-200 rounded text-xs p-1"></div>
+                <div class="flex flex-col">
+                    <span class="text-[9px] font-bold text-emerald-800">نوع التكرار</span>
+                    <select id="loopType" class="text-[9px] border border-emerald-200 rounded p-1">
+                        <option value="perVerse">بيت بيت</option>
+                        <option value="perGroup">المجموعة كاملة</option>
+                    </select>
+                </div>
+                <div class="flex flex-col"><span class="text-[9px] font-bold text-emerald-800">من</span><input type="number" id="fromV" value="1" min="1" max="61" class="w-9 text-center border border-emerald-200 rounded text-xs p-1"></div>
+                <div class="flex flex-col"><span class="text-[9px] font-bold text-emerald-800">إلى</span><input type="number" id="toV" value="61" min="1" max="61" class="w-9 text-center border border-emerald-200 rounded text-xs p-1"></div>
+                <button onclick="startRangeMode()" class="btn-green text-[10px] px-4 py-2 rounded-lg h-9 font-bold">تشغيل النطاق</button>
+            </div>
+            <div class="h-2 w-full bg-emerald-50 rounded-full mt-2 overflow-hidden"><div id="pBar" class="h-full w-0 transition-all duration-300"></div></div>
+        </div>
+    </div>
+
+    <audio id="audio" src="https://c.top4top.io/m_3699bzfrv1.mp3" preload="auto"></audio>
+
+    <script>
+        const firebaseConfig = { databaseURL: "https://gggg-ce6f8-default-rtdb.firebaseio.com/" };
+        firebase.initializeApp(firebaseConfig);
+        const rtdb = firebase.database();
+
+        const onlineRef = rtdb.ref('status/' + Math.random().toString(36).substr(2, 9));
+        onlineRef.set(true); onlineRef.onDisconnect().remove();
+        rtdb.ref('status').on('value', (s) => { document.getElementById('online-count').innerText = s.numChildren() || 1; });
+
+        function closeAd() { 
+            const win = document.getElementById('halal-ads-window');
+            win.classList.remove('show-ad');
+            setTimeout(() => { win.style.display = 'none'; }, 600);
+        }
+
+        rtdb.ref('live_ad').on('value', (snapshot) => {
+            const data = snapshot.val();
+            const adWindow = document.getElementById('halal-ads-window');
+            const adTitle = document.getElementById('ad-message');
+            const adDesc = document.getElementById('ad-desc');
+            const adImg = document.getElementById('ad-image');
+            
+            if (data && data.active) {
+                adWindow.style.display = 'block';
+                setTimeout(() => adWindow.classList.add('show-ad'), 50);
+                adTitle.innerText = data.content || "";
+                adDesc.innerText = data.desc || "";
+                adImg.src = data.image || "";
+                adImg.style.display = data.image ? 'block' : 'none';
+                document.getElementById('ad-link').href = data.url || "#";
+                adWindow.style.backgroundColor = data.bgColor || "#ffffff";
+                adWindow.style.borderRadius = data.radius || "15px";
+                adWindow.style.boxShadow = data.shadow || "0 10px 25px rgba(0,0,0,0.1)";
+                adTitle.style.color = data.fColor || "#1e293b";
+                adTitle.style.fontSize = (data.fSize || 16) + "px";
+                adTitle.style.fontWeight = data.weight || "bold";
+                adTitle.style.textAlign = data.align || "right";
+                adDesc.style.color = data.dColor || "#64748b";
+                adDesc.style.textAlign = data.align || "right";
+                const contentBox = adWindow.querySelector('.ad-content');
+                if(data.align === 'center') {
+                    contentBox.style.flexDirection = 'column';
+                    contentBox.style.textAlign = 'center';
+                } else {
+                    contentBox.style.flexDirection = 'row';
+                    contentBox.style.textAlign = data.align || 'right';
+                }
+            } else { closeAd(); }
+        });
+
+        const versesData = [
+            {type:'title', text:'المقدمة'},
+            {s1:"يَقُولُ رَاجِي رَحْمَةِ الْغَفُورِ", s2:"دَوْمًا سُلَيْمَانُ هُوَ الْجَمْزُورِي", s:12.8, e:20.2},
+            {s1:"<span class='highlight-word'>الْحَمْدُ لِلَّهِ</span> مُصَلِّيًا عَلَى", s2:"<span class='highlight-word'>مُحَمَّدٍ</span> وَآلِهِ وَمَنْ تَلَا", s:20.2, e:27.3},
+            {s1:"وَبَعْدُ: هَذَا النَّظْمُ لِلْمُرِيدِ", s2:"فِي النُّونِ وَالتَّنْوِينِ وَالْمُدُودِ", s:27.3, e:35.1},
+            {s1:"سَمَّيْتُهُ بِـ<span class='highlight-word'>تُحْفَةِ الأَطْفَالِ</span>", s2:"عَنْ شَيْخِنَا الْمِيهِيِّ ذِي الْكَمَالِ", s:35.1, e:42.2},
+            {s1:"أَرْجُو بِهِ أَنْ يَنْفَعَ الطُّلاَّبَا", s2:"وَالأَجْرَ وَالْقَبُولَ وَالثَّوَابَا", s:42.2, e:49.3},
+            {type:'title', text:'أحكام النون الساكنة والتنوين'},
+            {s1:"لِلنُّونِ إِنْ تَسْكُنْ وَلِلتَّنْوِينِ", s2:"أَرْبَعُ أَحْكاَمٍ فَخُذْ تَبْيِينِي", s:53.1, e:60.2},
+            {s1:"فَأَوَّلٌ <span class='highlight-word'>إِظْهَارٌ</span> قَبْلَ أَحْرُفِ", s2:"لِلْحَلْقِ سِتٌّ رُتِّبَتْ فَلْتَعْرِفِ", s:60.2, e:67.2},
+            {s1:"هَمْزٌ فَهَاءٌ ثُمَّ عَيْنٌ حَاءُ", s2:"مُهْمَلَتَانِ ثُمَّ غَيْنٌ خَاءُ", s:67.2, e:75.1},
+            {s1:"وَالثَّانِ <span class='highlight-word'>إِدْغَامٌ</span> بِسِتَّةٍ أَتَتْ", s2:"فِي يَرْمَلُونَ عِنْدَهُمْ قَدْ ثَبَتَتْ", s:75.1, e:82.5},
+            {s1:"لَكِنَّهَا قِسْمَانِ قِسْمٌ يُدْغَمَا", s2:"فِيهِ <span class='highlight-word'>بِغُنَّةٍ</span> <span class='highlight-word'>بِيَنْمُو</span> عُلِمَا", s:82.5, e:90.2},
+            {s1:"إِلَّا إِذَا كَانَا بِكِلْمَةٍ فَلَا", s2:"تُدْغِمْ كَدُنْيَا ثُمَّ صِنْوَانٍ تَلَا", s:90.2, e:97.6},
+            {s1:"وَالثَّانِ إِدْغَامٌ بِغَيْرِ غُنَّهْ", s2:"فِي اللَّامِ وَالرَّا ثُمَّ كَرِّرَنَّهْ", s:97.6, e:105.3},
+            {s1:"وَالثَّالِثُ <span class='highlight-word'>الْإِقْلَابُ</span> عِنْدَ الْبَاءِ", s2:"مِيماً بِغُنَّةٍ مَعَ الْإِخْفَاءِ", s:105.3, e:113.4},
+            {s1:"وَالرَّابِعُ <span class='highlight-word'>الْإِخْفَاءُ</span> عِنْدَ الْفَاضِلِ", s2:"مِنَ الْحُرُوفِ وَاجِبٌ لِلْفَاضِلِ", s:113.4, e:120.8},
+            {s1:"فِي خَمْسَةٍ مِنْ بَعْدِ عَشْرٍ رَمْزُهَا", s2:"فِي كِلْمِ هَذَا البَيْتِ قَدْ ضَمَّنْتُهَا", s:120.8, e:129.5},
+            {s1:"<span class='highlight-word'>صِ</span>فْ <span class='highlight-word'>ذَ</span>ا <span class='highlight-word'>ثَ</span>نَا <span class='highlight-word'>كَمْ</span> <span class='highlight-word'>جَ</span>ادَ <span class='highlight-word'>شَ</span>خْصٌ <span class='highlight-word'>قَ</span>دْ <span class='highlight-word'>سَ</span>مَا", s2:"<span class='highlight-word'>دُ</span>مْ <span class='highlight-word'>طَ</span>يِّبًا <span class='highlight-word'>زِ</span>دْ <span class='highlight-word'>فِ</span>ي <span class='highlight-word'>تُ</span>قًى <span class='highlight-word'>ضَ</span>عْ <span class='highlight-word'>ظَ</span>الِمَا", s:129.5, e:137.4},
+            {type:'title', text:'أحكام النون والميم المشددتين'},
+            {s1:"وَغُنَّ مِيماً ثُمَّ نُوناً شُدِّدَا", s2:"وَوسَمِّ كُلًّا حَرْفَ غُنَّةٍ بَدَا", s:141.3, e:148.9},
+            {type:'title', text:'أحكام الميم الساكنة'},
+            {s1:"وَالْمِيمُ إِنْ تَسْكُنْ تَجِي قَبْلَ الْهِجَا", s2:"لَا أَلِفٍ لَيِّنَةٍ لِذِي الْحِجَا", s:148.9, e:159.7},
+            {s1:"أَحْكَامُهَا ثَلَاثَةٌ لِمَنْ ضَبَطْ", s2:"<span class='highlight-word'>إِخْفَاءٌ</span> اِدْغَامٌ وَإِظْهارٌ فَقَطْ", s:159.7, e:167.4},
+            {s1:"فَأَوَّلٌ <span class='highlight-word'>الْإِخْفَاءُ</span> عِنْدَ الْبَاءِ", s2:"وَوسَمِّهِ <span class='highlight-word'>الشَّفْوِيَّ</span> لِلْقُرَّاءِ", s:167.4, e:175.3},
+            {s1:"وَالثَّانِ <span class='highlight-word'>إِدْغَامٌ</span> بِمِثْلِهَا أَتَى", s2:"وَسَمِّ إِدْغَاماً صَغِيراً يَا فَتَى", s:175.3, e:184.1},
+            {s1:"وَالثَّالِثُ <span class='highlight-word'>الْإِظْهَارُ</span> فِي الْبَقِيَّهْ", s2:"مِنْ أَحْرُفٍ وَسَمِّهَا شَفْوِيَّهْ", s:184.1, e:191.6},
+            {s1:"وَاحْذَرْ لَدَى وَاوٍ وَفَا أَنْ تَخْتَفِي", s2:"لِقُرْبِهَا وَلِاتِّحَادِ فَاعْرِفِ", s:191.6, e:199.8},
+            {type:'title', text:'حكم لام أل ولام الفعل'},
+            {s1:"لِلَامِ أَلْ حَالَانِ قَبْلَ الْأَحْرُفِ", s2:"أُولَاهُمَا إِظْهَارُهَا فَلْتَعْرِفِ", s:202.9, e:210.9},
+            {s1:"قَبْلَ ارْبَعٍ مَعْ عَشْرَةٍ خُذْ عِلْمَهُ", s2:"مِنِ ابْغِ حَجَّكَ وَخَفْ عَقِيمَهُ", s:210.9, e:218.7},
+            {s1:"ثَانِيهِمَا إِدْغَامُهَا فِي أَرْبَعِ", s2:"وَعَشْرَةٍ أَيْضًا وَرَمْزَهَا فَعِي", s:218.7, e:227.8},
+            {s1:"طِبْ ثُمَّ صِلْ رُحْمًا تَفُزْ ضِفْ ذَا نِعَمْ", s2:"دَعْ سُوءَ ظَنٍّ زُرْ شَرِيفًا لِلْكَرَمْ", s:227.8, e:235.9},
+            {s1:"وَالَّلامَ الُاولَى سَمِّهَا قَمَرِيَّهْ", s2:"وَالَّلامَ الُاخْرَى سَمِّهَا شَمْسِيَّهْ", s:235.9, e:243.7},
+            {s1:"وَأَظْهِرَنَّ لَامَ فِعْلٍ مُطْلَقَا", s2:"فِي نَحْوِ قُلْ نَعَمْ وَقُلْنَا وَالْتَقَى", s:243.7, e:251.8},
+            {type:'title', text:'في المثلين والمتقاربين والمتجانسين'},
+            {s1:"إِنْ فِي الصِّفَاتِ وَالْمَخَارِجِ اتَّفَقْ", s2:"حَرْفَانِ فَالْمِثْلَانِ فِيهِمَا أَحَقْ", s:256.3, e:264.6},
+            {s1:"وَإِنْ يَكُونَا مَخْرَجًا تَقَارَبَا", s2:"وَفِي الصِّفَاتِ اخْتَلَفَا يُلَقَّبَا", s:264.6, e:273.1},
+            {s1:"مُتَقَارِبَيْنِ أَوْ يَكُونَا اتَّفَقَا", s2:"فِي مَخْرَجٍ دُونَ الصِّفَاتِ حُقِّقَا", s:273.1, e:282.2},
+            {s1:"بِالْمُتَجَانِسَيْنِ ثُمَّ إِنْ سَكَنُ", s2:"أَوَّلُ كُلٍّ فَالصَّغِيرَ سَمِّيَنْ", s:282.2, e:290.4},
+            {s1:"أَوْ حُرِّكَ الْحَرْفَانِ فِي كُلٍّ فَقُلْ", s2:"كُلٌّ كَبِيرٌ وَافْهَمَنْهُ بِالْمُثُلْ", s:290.4, e:298.8},
+            {type:'title', text:'أقسام المد'},
+            {s1:"وَالْمَدُّ أَصْلِيٌّ وَفَرْعِيٌّ لَهُ", s2:"وَسَمِّ أَوَّلًا طَبِيعِيًّا وَهُو", s:300.8, e:309.3},
+            {s1:"مَا لَا تَوَقُّفٌ لَهُ عَلَى سَبَبْ", s2:"وَلَا بِدُونِهِ الْحُرُوفُ تُجْتَلَبْ", s:309.3, e:317.5},
+            {s1:"بَلْ أَيُّ حَرْفٍ غَيْرِ هَمْزٍ أَوْ سُكُونْ", s2:"جَا بَعْدَ مَدٍّ فَالطَّبِيعِيَّ يَكُونْ", s:317.5, e:326.6},
+            {s1:"وَالْآخَرُ الْفَرْعِيُّ مَوْقُوفٌ عَلَى", s2:"سَبَبْ كَهَمْزٍ أَوْ سُكُونٍ مُسْجَلَا", s:326.6, e:335.0},
+            {s1:"حُرُوفُهُ ثَلَاثَةٌ فَعِيهَا", s2:"مِنْ لَفْظِ وَايٍ وَهْيَ فِي نُوحِيهَا", s:335.0, e:343.0},
+            {s1:"وَالْكَسْرُ قَبْلَ الْيَا وَقَبْلَ الْوَاوِ ضَمْ", s2:"شَرْطٌ وَفَتْحٌ قَبْلَ أَلْفٍ يُلْتَزَمْ", s:343.0, e:351.9},
+            {s1:"وَاللِّينُ مِنْهَا الْيَا وَوَاوٌ سُكِّنَا", s2:"إِنِ انْفِتَاحٌ قَبْلَ كُلٍّ أُعْلِنَا", s:351.9, e:360.4},
+            {type:'title', text:'أحكام المد'},
+            {s1:"لِلْمَدِّ أَحْكَامٌ ثَلَاثَةٌ تَدُومْ", s2:"وَهْيَ الْوُجُوبُ وَالْجَوَازُ وَاللُّزُومْ", s:362.4, e:371.0},
+            {s1:"فَوَاجِبٌ إِنْ جَاءَ هَمْزٌ بَعْدَ مَدّ", s2:"فِي كِلْمَةٍ وَذَا بِمُتَّصِلٍ يُعَدّ", s:371.0, e:379.2},
+            {s1:"وَجَائِزٌ مَدٌّ وَقَصْرٌ إِنْ فُصِلْ", s2:"كُلٌّ بِكِلْمَةٍ وَهَذَا الْمُنْفَصِلْ", s:379.2, e:387.8},
+            {s1:"وَمِثْلُ ذَا إِنْ عَرَضَ السُّكُونُ", s2:"وَقْفًا كَتَعْلَمُونَ نَسْتَعِينُ", s:387.8, e:395.3},
+            {s1:"أَوْ قُدِّمَ الْهَمْزُ عَلَى الْمَدِّ وَذَا", s2:"بَدَلْ كَآمَنُوا وَإِيمَانًا خُذَا", s:395.3, e:403.9},
+            {s1:"وَلَازِمٌ إِنِ السُّكُونُ أُصِّلَا", s2:"وَصْلًا وَوَقْفًا بَعْدَ مَدٍّ طُوِّلَا", s:403.9, e:412.1},
+            {type:'title', text:'أقسام المد اللازم'},
+            {s1:"أَقْسَامُ لَازِمٍ لَدَيْهِمْ أَرْبَعَهْ", s2:"وَتِلْكَ كِلْمِيٌّ وَحَرْفِيٌّ مَعَهْ", s:414.8, e:422.7},
+            {s1:"كِلَاهُمَا مُخَفَّفٌ مُثَقَّلُ", s2:"فَهَذِهِ أَرْبَعَةٌ تُفَصَّلُ", s:422.7, e:431.1},
+            {s1:"فَإِنْ بِكِلْمَةٍ سُكُونٌ اجْتَمَعْ", s2:"مَعْ حَرْفِ مَدٍّ فَهْوَ كِلْمِيٌّ وَقَعْ", s:431.1, e:439.5},
+            {s1:"أَوْ فِي ثُلَاثِيِّ الْحُرُوفِ وُجِدَا", s2:"وَالْمَدُّ وَسْطُهُ فَحَرْفِيٌّ بَدَا", s:439.5, e:448.1},
+            {s1:"كِلَاهُمَا مُثَقَّلٌ إِنْ أُدْغِمَا", s2:"مُخَفَّفٌ كُلٌّ إِذَا لَمْ يُدْغَمَا", s:448.1, e:456.4},
+            {s1:"وَاللَّازِمُ الْحَرْفِيُّ أَوَّلَ السُّوَرْ", s2:"وُجُودُهُ وَفِي ثَمَانٍ انْحَصَرْ", s:456.4, e:464.4},
+            {s1:"يَجْمَعُهَا حُرُوفُ <span class='highlight-word'>كَمْ عَسَلْ نَقَصْ</span>", s2:"وَعَيْنُ ذُو وَجْهَيْنِ وَالطُّولُ أَخَصّ", s:464.4, e:473.3},
+            {s1:"وَمَا سِوَى الْحَرْفِ الثُّلَاثِي لَا أَلِفْ", s2:"فَمَدُّهُ مَدًّا طَبِيعِيًّا أُلِفْ", s:473.3, e:481.4},
+            {s1:"وَذَاكَ أَيْضًا فِي فَوَاتِحِ السُّوَرْ", s2:"فِي لَفْظِ <span class='highlight-word'>حَيٍّ طَاهِرٍ</span> قَدِ انْحَصَرْ", s:481.4, e:489.8},
+            {s1:"وَيَجْمَعُ الْفَوَاتِحَ الْأَرْبَعْ عَشَرْ", s2:"صِلْهُ سُحَيْرًا مَنْ قَطَعْكَ ذَا اشْتَهَرْ", s:489.8, e:498.4},
+            {type:'title', text:'الخاتمة'},
+            {s1:"<span class='highlight-word'>وَتَمَّ</span> ذَا النَّظْمُ بِحَمْدِ اللَّهِ", s2:"عَلَى تَمَامِهِ بِلَا تَنَاهِي", s:498.4, e:505.8},
+            {s1:"أَبْيَاتُهُ <span class='highlight-word'>نَدٌّ بَدَا</span> لِذِي النُّهَى", s2:"تَارِيخُهَا <span class='highlight-word'>بُشْرَى لِمَنْ يُتْقِنُهَا</span>", s:505.8, e:514.1},
+            {s1:"ثُمَّ الصَّلَاةُ وَالسَّلَامُ أَبَدَا", s2:"عَلَى خِتَامِ الْأَنْبِيَاءِ أَحْمَدَا", s:514.1, e:522.4},
+            {s1:"وَالْآلِ وَالصَّحْبِ وَكُلِّ تَابِعِ", s2:"وَكُلِّ قَارِئٍ وَكُلِّ سَامِعِ", s:522.4, e:535.0}
+        ];
+
+        const audio = document.getElementById('audio');
+        let currentIdx = -1, loopMode = 'single', isPlaying = false, loopCounter = 1; 
+        let groupLoopCounter = 1;
+        const verseEls = [];
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg; toast.style.display = 'block';
+            setTimeout(()=> { toast.style.display = 'none'; }, 2000);
+        }
+
+        function updatePlayback() {
+            if (!isPlaying || audio.paused) return;
+            const v = verseEls[currentIdx];
+            if (v) {
+                const progress = ((audio.currentTime - v.s) / (v.e - v.s)) * 100;
+                document.getElementById('pBar').style.width = Math.min(progress, 100) + "%";
+                
+                if (audio.currentTime >= v.e - 0.2) { 
+                    const maxLoops = parseInt(document.getElementById('customLoop').value) || 1;
+                    const loopType = document.getElementById('loopType').value;
+
+                    if (loopType === 'perVerse') {
+                        if (loopCounter < maxLoops) {
+                            loopCounter++;
+                            audio.currentTime = v.s;
+                        } else {
+                            handleNextAction();
+                        }
+                    } else {
+                        handleNextAction();
+                    }
+                }
+            }
+            requestAnimationFrame(updatePlayback);
+        }
+
+        function handleNextAction() {
+            loopCounter = 1; 
+            const toV = parseInt(document.getElementById('toV').value) - 1;
+            const fromV = parseInt(document.getElementById('fromV').value) - 1;
+            const maxLoops = parseInt(document.getElementById('customLoop').value) || 1;
+            const loopType = document.getElementById('loopType').value;
+
+            if (loopMode === 'single') {
+                audio.currentTime = verseEls[currentIdx].s;
+            } else if (currentIdx < toV && currentIdx < verseEls.length - 1) {
+                currentIdx++;
+                audio.currentTime = verseEls[currentIdx].s;
+                syncUI(currentIdx);
+            } else {
+                if (loopType === 'perGroup' && groupLoopCounter < maxLoops) {
+                    groupLoopCounter++;
+                    currentIdx = fromV;
+                    audio.currentTime = verseEls[currentIdx].s;
+                    syncUI(currentIdx);
+                } else {
+                    stopPlayback();
+                }
+            }
+        }
+
+        function stopPlayback() { isPlaying = false; audio.pause(); document.getElementById('playBtn').innerText = "▶"; loopCounter = 1; groupLoopCounter = 1; }
+        
+        function syncUI(idx) { 
+            localStorage.setItem('lastVerseIndex', idx); 
+            document.getElementById('vTitle').innerText = `البيت: ${idx+1}`; 
+            document.querySelectorAll('.verse-block').forEach(el=>el.classList.remove('active-reading'));
+            const a = document.getElementById(`v-${idx}`); if(a) a.classList.add('active-reading');
+            scrollToActive(); 
+        }
+
+        function scrollToActive() { const active = document.getElementById(`v-${currentIdx}`); if(active) active.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+
+        let vCounter = 0;
+        versesData.forEach(item => {
+            if(item.type === 'title'){
+                const t = document.createElement('div'); t.className="section-title font-amiri"; t.innerText = `◈ ${item.text} ◈`;
+                document.getElementById('poemBody').appendChild(t);
+            } else {
+                const idx = vCounter++;
+                const div = document.createElement('div'); div.className="verse-block"; div.id=`v-${idx}`;
+                div.onclick = () => { document.getElementById('controls').classList.add('hidden-ui'); document.getElementById('dynamicShareBtn').classList.remove('push-up'); };
+                div.ondblclick = () => { selectVerse(idx); };
+                div.innerHTML=`<div class="shatr font-amiri">${item.s1}</div><div class="v-num">${idx+1}</div><div class="shatr font-amiri">${item.s2}</div>`;
+                document.getElementById('poemBody').appendChild(div);
+                verseEls.push({...item, id: idx});
+            }
+        });
+
+        function selectVerse(idx) { currentIdx = idx; loopCounter = 1; groupLoopCounter = 1; document.getElementById('controls').classList.remove('hidden-ui'); document.getElementById('dynamicShareBtn').classList.add('push-up'); syncUI(idx); if (isPlaying) audio.currentTime = verseEls[idx].s; }
+        
+        function toggleAudio() {
+            if (audio.paused) {
+                const v = verseEls[currentIdx];
+                if(v && (audio.currentTime < v.s || audio.currentTime > v.e)) audio.currentTime = v.s;
+                audio.play(); isPlaying = true; document.getElementById('playBtn').innerText="⏸";
+                requestAnimationFrame(updatePlayback);
+            } else { audio.pause(); isPlaying = false; document.getElementById('playBtn').innerText="▶"; }
+        }
+
+        function startRangeMode() {
+            currentIdx = parseInt(document.getElementById('fromV').value) - 1;
+            loopCounter = 1; groupLoopCounter = 1; loopMode = 'all'; selectVerse(currentIdx);
+            audio.currentTime = verseEls[currentIdx].s; isPlaying = true; audio.play();
+            document.getElementById('playBtn').innerText="⏸"; requestAnimationFrame(updatePlayback);
+        }
+
+        function setLoopMode(m) { 
+            loopMode = m; 
+            document.getElementById('modeSingle').classList.toggle('btn-green', m==='single'); 
+            document.getElementById('modeAll').classList.toggle('btn-green', m==='all');
+            document.getElementById('modeSingle').classList.toggle('bg-gray-100', m!=='single');
+            document.getElementById('modeAll').classList.toggle('bg-gray-100', m!=='all');
+        }
+
+        function searchVerse() {
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            document.querySelectorAll('.verse-block').forEach(el => { el.style.display = el.innerText.toLowerCase().includes(q) ? 'flex' : 'none'; });
+        }
+
+        async function copyAndShare() {
+            const shareText = "https://qurantube.neocities.org/%D8%AD%D9%90%D9%81%D8%B8%D9%88%D9%86/download";
+            try {
+                await navigator.clipboard.writeText(shareText);
+                showToast("تم النسخ وفتح المشاركة ✅");
+            } catch (err) {
+                console.error("خطأ في النسخ");
+            }
+
+            if (navigator.share) {
+                navigator.share({
+                    title: 'تحفة الأطفال',
+                    text: 'تطبيق تحفة الأطفال التفاعلي للتحفيظ',
+                    url: shareText
+                }).catch(console.error);
+            } else {
+                showToast("تم نسخ الرابط للحافظة ✅");
+            }
+        }
+
+        function closeGuide() { document.getElementById('guideOverlay').style.display = 'none'; document.getElementById('mainContent').classList.remove('full-blur'); localStorage.setItem('firstVisitTime', Date.now()); startShareTimer(); }
+        
+        function startShareTimer() { 
+            const b = document.getElementById('dynamicShareBtn'); b.classList.add('share-center'); 
+            setTimeout(() => { b.classList.remove('share-center'); b.classList.add('share-final'); }, 3000); 
+        }
+
+        async function enableOffline() {
+            const btn = document.getElementById('offlineBtn');
+            btn.innerText = "⏳ جاري التحميل...";
+            if ('serviceWorker' in navigator) {
+                try {
+                    const swCode = `
+                        const CACHE_NAME = 'tohfa-v1';
+                        const ASSETS = [
+                            '${window.location.href}',
+                            'https://c.top4top.io/m_3699bzfrv1.mp3',
+                            'https://cdn.tailwindcss.com',
+                            'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@500;800&display=swap'
+                        ];
+                        self.addEventListener('install', (e) => {
+                            e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(ASSETS)));
+                        });
+                        self.addEventListener('fetch', (e) => {
+                            e.respondWith(caches.match(e.request).then((res) => res || fetch(e.request)));
+                        });
+                    `;
+                    const blob = new Blob([swCode], { type: 'application/javascript' });
+                    const swUrl = URL.createObjectURL(blob);
+                    await navigator.serviceWorker.register(swUrl);
+                    btn.innerText = "✅ متاح بدون نت"; btn.classList.add('done');
+                } catch (e) { btn.innerText = "❌ فشل التفعيل"; }
+            }
+        }
+
+        // --- الميزة الجديدة: استرجاع موضع التوقف عند فتح الكود ---
+        window.addEventListener('load', () => {
+            const lastIdx = localStorage.getItem('lastVerseIndex');
+            if (lastIdx !== null) {
+                const index = parseInt(lastIdx);
+                if (index >= 0 && index < verseEls.length) {
+                    // ننتظر قليلاً حتى تكتمل عملية رسم العناصر
+                    setTimeout(() => {
+                        selectVerse(index);
+                        scrollToActive();
+                    }, 500);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
